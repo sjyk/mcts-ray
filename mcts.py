@@ -11,8 +11,9 @@ MAP_NAME = '/Users/sanjayk/Documents/research/RLPy/rlpy/Domains/GridWorldMaps/4x
 num_workers = 5
 ray.init(start_ray_local=True, num_workers=num_workers)
 
-#Plays a single action
-def play(state, action, current_reward):
+#Plays a single action (remote version)
+@ray.remote
+def playr(state, action, current_reward):
 	g = GridWorld(mapname=MAP_NAME)
 	g.s0()
 	g.state = state.copy()
@@ -20,19 +21,31 @@ def play(state, action, current_reward):
 	return ns, actions, current_reward + r
 
 
+def play(state, action, current_reward):
+	g = GridWorld(mapname=MAP_NAME)
+	g.s0()
+	g.state = state.copy()
+	r, ns, terminal, actions = g.step(action)
+	return ns, actions, current_reward + r, terminal
+
+
 #Plays a single action, gets an expected state
 def getNextState(state, action, trials):
 	
-	results = np.zeros((trials,2))
+	resultsa = np.zeros((trials,2))
 
+	results = []
+
+	for _ in range(0, trials):
+		results.append(playr.remote(state, action,0))
+
+	#must be a better way to do this
+	results = ray.get(results)
 	for t in range(0, trials):
-		g = GridWorld(mapname=MAP_NAME)
-		g.s0()
-		g.state = state.copy()
-		r, ns, terminal, actions = g.step(action)
-		results[t,:] = ns
+		resultsa[t,:] = results[t][0]
 
-	agg_state = np.median(results, axis=0)
+
+	agg_state = np.median(np.array(resultsa), axis=0)
 
 	g = GridWorld(mapname=MAP_NAME)
 
@@ -52,7 +65,11 @@ def randomPlayout(state, action, current_reward, remaining_time):
 
 		action = np.random.choice(cur_possible_actions)
 
-		cur_state, cur_possible_actions, acc_reward = play(cur_state, action, acc_reward)
+		cur_state, cur_possible_actions, acc_reward, term = play(cur_state, action, acc_reward)
+
+		#break if terminal
+		if term:
+			break
 
 	return acc_reward
 
@@ -161,7 +178,11 @@ s, t, a = g.s0()
 
 m = MCTSTree()
 
+import datetime
+
+now = datetime.datetime.now()
 treeSearch(s,a,0,15, m)
+print datetime.datetime.now()-now
 
 print m.argmax()
 
