@@ -5,7 +5,7 @@ import copy
 
 from rlpy.Domains.GridWorld import GridWorld
 
-MAP_FOLDER = '/Users/sanjayk/Documents/research/RLPy/rlpy/Domains/GridWorldMaps/'
+MAP_NAME = '/Users/sanjayk/Documents/research/RLPy/rlpy/Domains/GridWorldMaps/4x5.txt'
 
 
 num_workers = 5
@@ -13,7 +13,7 @@ ray.init(start_ray_local=True, num_workers=num_workers)
 
 #Plays a single action
 def play(state, action, current_reward):
-	g = GridWorld(mapname=MAP_FOLDER+'4x5.txt')
+	g = GridWorld(mapname=MAP_NAME)
 	g.s0()
 	g.state = state.copy()
 	r, ns, terminal, actions = g.step(action)
@@ -26,7 +26,7 @@ def getNextState(state, action, trials):
 	results = np.zeros((trials,2))
 
 	for t in range(0, trials):
-		g = GridWorld(mapname=MAP_FOLDER+'4x5.txt')
+		g = GridWorld(mapname=MAP_NAME)
 		g.s0()
 		g.state = state.copy()
 		r, ns, terminal, actions = g.step(action)
@@ -34,7 +34,7 @@ def getNextState(state, action, trials):
 
 	agg_state = np.median(results, axis=0)
 
-	g = GridWorld(mapname=MAP_FOLDER+'4x5.txt')
+	g = GridWorld(mapname=MAP_NAME)
 
 	return agg_state, g.isTerminal(agg_state), g.possibleActions(agg_state)
 	#return np.mean(results)
@@ -64,10 +64,12 @@ def treeSearch(init_state,
 			   init_time,
 			   mctsTree,
 			   playout_iters=10,
-			   query_iters=10):
+			   query_iters=10,
+			   traversed_set=set()):
 
 	#initialize
 	cur_state = init_state
+	cur_state.flags.writeable = False
 	acc_reward = init_reward
 	cur_possible_actions = init_actions
 	current_time = init_time
@@ -78,6 +80,10 @@ def treeSearch(init_state,
 
 	#expand each node
 	for a in cur_possible_actions:
+
+		#if we have already seen it
+		if (cur_state.data, a) in traversed_set:
+			continue
 
 		playouts = []
 		for i in range(0,playout_iters):
@@ -99,13 +105,18 @@ def treeSearch(init_state,
 
 		#recurse
 		if not terminal:
+
+			new_set = copy.copy(traversed_set)
+			new_set.add((cur_state.data, a))
+
 			treeSearch(new_state, 
 					   new_actions,
 					   expected_reward,
 					   current_time-1,
 					   subTree,
 					   playout_iters,
-					   query_iters)
+					   query_iters,
+					   new_set)
 		else:
 			return
 
@@ -118,7 +129,6 @@ class MCTSTree(object):
 		self.parent = None
 		self.state_action = None
 		self.reward = -np.inf
-
 
 	def backpropagate(self,r):
 		self.reward = r
@@ -133,15 +143,26 @@ class MCTSTree(object):
 		while cur_tree.children != []:
 			print cur_tree.state_action, cur_tree.reward
 			best = np.argmax([c.reward for c in cur_tree.children])
-			print cur_tree.children
 			cur_tree = cur_tree.children[best]
 
+	def argmax(self):
+		result = []
+		cur_tree = self
+		while cur_tree.children != []:
+			result.append(cur_tree.state_action)
+			best = np.argmax([c.reward for c in cur_tree.children])
+			cur_tree = cur_tree.children[best]
 
-g = GridWorld(mapname=MAP_FOLDER+'4x5.txt')
+		return result
+
+
+g = GridWorld(mapname=MAP_NAME)
 s, t, a = g.s0()
 
 m = MCTSTree()
+
 treeSearch(s,a,0,15, m)
-m.treePrint()
+
+print m.argmax()
 
 
