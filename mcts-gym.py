@@ -43,7 +43,7 @@ ray.init(start_ray_local=True, num_workers=num_workers)
 
 # Function for initializing the gym environment.
 def env_initializer():
-  return gym.make("MsPacman-v0")
+  return gym.make("Pong-v0")
 
 # Function for reinitializing the gym environment in order to guarantee that
 # the state of the game is reset after each remote task.
@@ -61,6 +61,7 @@ def randomPlayout(action_list, remaining_time):
 	acc_reward = 0
 
 	env = ray.reusables.env
+	print(action_list)
 
 	for a in action_list:
 		observation, reward, done, info = env.step(a)
