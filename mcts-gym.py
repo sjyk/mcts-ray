@@ -61,7 +61,7 @@ def randomPlayout(action_list, remaining_time):
 	acc_reward = 0
 
 	env = ray.reusables.env
-	print(action_list)
+	print "Inside", action_list
 
 	for a in action_list:
 		observation, reward, done, info = env.step(a)
@@ -105,6 +105,7 @@ def treeSearch(mctsTree,
 
 		action_arg = copy.copy(action_list)
 		action_arg.append(a)
+		print "Outside", action_arg
 
 		playouts = []
 		for i in range(0,playout_iters):
